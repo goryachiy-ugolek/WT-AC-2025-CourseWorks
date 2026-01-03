@@ -1,0 +1,18 @@
+{
+  "name": "task_02-monorepo",
+  "private": true,
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:backend": "npm run dev -w backend",
+    "dev:frontend": "npm run dev -w frontend",
+    "dev": "concurrently -k -n backend,frontend \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "prisma:generate": "npm run prisma:generate -w backend",
+    "prisma:migrate:dev": "npm run prisma:migrate:dev -w backend",
+    "prisma:studio": "npm run prisma:studio -w backend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

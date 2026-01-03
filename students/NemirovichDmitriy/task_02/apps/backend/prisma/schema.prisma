@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  user
+}
+
+model User {
+  id            String           @id @default(uuid()) @db.Uuid()
+  username      String           @unique
+  email         String           @unique
+  passwordHash  String           @map("password_hash")
+  role          Role             @default(user)
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+
+  trips             Trip[]            @relation("TripOwner")
+  notes             Note[]
+  expenses          Expense[]
+  tripParticipants  TripParticipant[]
+  refreshTokens     RefreshToken[]
+
+  @@map("users")
+}
+
+model Trip {
+  id          String    @id @default(uuid()) @db.Uuid()
+  title       String
+  description String?
+  startDate   DateTime  @map("start_date") @db.Date
+  endDate     DateTime  @map("end_date") @db.Date
+  budget      Float?    @map("budget")
+  ownerId     String    @map("owner_id") @db.Uuid()
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  owner        User              @relation("TripOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  stops        Stop[]
+  notes        Note[]
+  expenses     Expense[]
+  participants TripParticipant[]
+
+  @@index([ownerId])
+  @@map("trips")
+}
+
+model Stop {
+  id            String    @id @default(uuid()) @db.Uuid()
+  tripId        String    @map("trip_id") @db.Uuid()
+  name          String
+  address       String?
+  latitude      Float?
+  longitude     Float?
+  arrivalDate   DateTime? @map("arrival_date")
+  departureDate DateTime? @map("departure_date")
+  order         Int       @map("order")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+  @@index([tripId, order])
+  @@map("stops")
+}
+
+model Note {
+  id        String   @id @default(uuid()) @db.Uuid()
+  tripId    String   @map("trip_id") @db.Uuid()
+  authorId  String   @map("author_id") @db.Uuid()
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  trip   Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+  @@index([authorId])
+  @@map("notes")
+}
+
+model Expense {
+  id          String   @id @default(uuid()) @db.Uuid()
+  tripId      String   @map("trip_id") @db.Uuid()
+  authorId    String   @map("author_id") @db.Uuid()
+  amount      Float
+  category    String?
+  description String?
+  date        DateTime @db.Date
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  trip   Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([tripId])
+  @@index([authorId])
+  @@map("expenses")
+}
+
+model TripParticipant {
+  id        String   @id @default(uuid()) @db.Uuid()
+  tripId    String   @map("trip_id") @db.Uuid()
+  userId    String   @map("user_id") @db.Uuid()
+  joinedAt  DateTime @default(now()) @map("joined_at")
+
+  trip Trip @relation(fields: [tripId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tripId, userId])
+  @@index([userId])
+  @@map("trip_participants")
+}
+
+model RefreshToken {
+  id                String   @id @default(uuid()) @db.Uuid()
+  userId            String   @map("user_id") @db.Uuid()
+  jtiHash           String   @unique @map("jti_hash")
+  replacedByTokenId String?  @map("replaced_by_token_id")
+  createdByIp       String?  @map("created_by_ip")
+  userAgent         String?  @map("user_agent")
+  revokedAt         DateTime? @map("revoked_at")
+  expiresAt         DateTime @map("expires_at")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
