@@ -247,12 +247,12 @@ Dashboards / Aggregates
 - **Rate Limiting (express-rate-limit):**
   - `/auth/*`: 5 запросов/минуту на IP
   - API endpoints: 100 запросов/минуту на пользователя
-  
+
 - **XSS Protection:**
   - Хранение Note.content и Trip.description как plain text
   - Sanitization на клиенте при рендеринге (DOMPurify или экранирование)
   - Content Security Policy headers
-  
+
 - **SQL Injection:** Использование Prisma ORM (параметризованные запросы)
 
 - **CORS:** Настройка allowed origins (не использовать wildcard `*` в продакшене)
@@ -271,7 +271,7 @@ Dashboards / Aggregates
   - Успешные/неудачные попытки входа
   - Изменения критичных данных (создание/удаление Trip)
   - Ошибки сервера (500)
-  
+
 - **Не логировать:** Пароли, JWT токены, персональные данные в plaintext
 
 ### Проверка прав доступа
@@ -286,8 +286,9 @@ Dashboards / Aggregates
 - **Не раскрывать технические детали:**
   - ❌ "TypeError: Cannot read property 'id' of undefined"
   - ✅ "Поездка не найдена"
-  
+
 - **Структурированные ошибки:**
+
   ```json
   {
     "status": "error",
