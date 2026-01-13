@@ -1,0 +1,605 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "Longread Blog API",
+    "version": "1.0.0",
+    "description": "API для блога: пользователи, посты, теги, комментарии, лайки"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Локальный сервер"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {
+      "User": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "email": { "type": "string" },
+          "name": { "type": "string" },
+          "role": { "type": "string" }
+        }
+      },
+      "Post": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "title": { "type": "string" },
+          "content": { "type": "string" },
+          "published": { "type": "boolean" },
+          "authorId": { "type": "integer" },
+          "tags": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Tag" }
+          }
+        }
+      },
+      "Tag": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" }
+        }
+      },
+      "Comment": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "content": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "postId": { "type": "integer" },
+          "authorId": { "type": "integer" }
+        }
+      },
+      "Like": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "postId": { "type": "integer" },
+          "userId": { "type": "integer" }
+        }
+      },
+      "AuthRequest": {
+        "type": "object",
+        "properties": {
+          "email": { "type": "string" },
+          "password": { "type": "string" }
+        }
+      },
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "token": { "type": "string" }
+        }
+      }
+    }
+  },
+  "security": [
+    { "BearerAuth": [] }
+  ],
+  "paths": {
+    "/auth/register": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Регистрация пользователя",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AuthRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Пользователь создан", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
+          "400": { "description": "Ошибка регистрации" }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Авторизация",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AuthRequest" }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Токен выдан", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AuthResponse" } } } },
+          "401": { "description": "Неверные данные" }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": ["auth"],
+        "summary": "Получить текущего пользователя",
+        "security": [{ "BearerAuth": [] }],
+        "responses": {
+          "200": { "description": "Данные пользователя", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
+          "401": { "description": "Не авторизован" }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": ["auth"],
+        "summary": "Выход из системы",
+        "responses": {
+          "200": { "description": "Успешный выход" }
+        }
+      }
+    },
+
+    "/posts": {
+      "get": {
+        "tags": ["posts"],
+        "summary": "Список всех постов с пагинацией и фильтрами",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } },
+          { "name": "tag", "in": "query", "schema": { "type": "string" }, "description": "Фильтр по имени тега" },
+          { "name": "search", "in": "query", "schema": { "type": "string" }, "description": "Поиск по заголовку" },
+          { "name": "authorId", "in": "query", "schema": { "type": "integer" }, "description": "Фильтр по автору" }
+        ],
+        "responses": {
+          "200": { 
+            "description": "Успех", 
+            "content": { 
+              "application/json": { 
+                "schema": { 
+                  "type": "object",
+                  "properties": {
+                    "posts": { "type": "array", "items": { "$ref": "#/components/schemas/Post" } },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "total": { "type": "integer" },
+                        "page": { "type": "integer" },
+                        "limit": { "type": "integer" },
+                        "totalPages": { "type": "integer" }
+                      }
+                    }
+                  }
+                } 
+              } 
+            } 
+          }
+        }
+      },
+      "post": {
+        "tags": ["posts"],
+        "summary": "Создать пост",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "content": { "type": "string" },
+                  "published": { "type": "boolean" },
+                  "tagIds": { "type": "array", "items": { "type": "integer" } }
+                },
+                "required": ["title", "content"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Пост создан" },
+          "401": { "description": "Требуется авторизация" }
+        }
+      }
+    },
+    "/posts/drafts": {
+      "get": {
+        "tags": ["posts"],
+        "summary": "Черновики текущего пользователя",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": { 
+            "description": "Черновики", 
+            "content": { 
+              "application/json": { 
+                "schema": { 
+                  "type": "object",
+                  "properties": {
+                    "drafts": { "type": "array", "items": { "$ref": "#/components/schemas/Post" } },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "total": { "type": "integer" },
+                        "page": { "type": "integer" },
+                        "limit": { "type": "integer" },
+                        "totalPages": { "type": "integer" }
+                      }
+                    }
+                  }
+                }
+              } 
+            } 
+          },
+          "401": { "description": "Требуется авторизация" }
+        }
+      }
+    },
+    "/posts/{id}": {
+      "get": {
+        "tags": ["posts"],
+        "summary": "Получить пост по id",
+        "parameters": [{
+          "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }
+        }],
+        "responses": {
+          "200": { "description": "Пост", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Post" } } } },
+          "404": { "description": "Пост не найден" }
+        }
+      },
+      "put": {
+        "tags": ["posts"],
+        "summary": "Обновить пост",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{
+          "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }
+        }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "content": { "type": "string" },
+                  "published": { "type": "boolean" },
+                  "tagIds": { "type": "array", "items": { "type": "integer" } }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Пост обновлён" },
+          "401": { "description": "Требуется авторизация" }
+        }
+      },
+      "delete": {
+        "tags": ["posts"],
+        "summary": "Удалить пост",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{
+          "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }
+        }],
+        "responses": {
+          "200": { "description": "Пост удалён" },
+          "403": { "description": "Нет доступа" }
+        }
+      }
+    },
+
+    "/tags": {
+      "get": {
+        "tags": ["tags"],
+        "summary": "Список тегов",
+        "responses": {
+          "200": { "description": "Теги", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Tag" } } } } }
+        }
+      },
+      "post": {
+        "tags": ["tags"],
+        "summary": "Создать тег",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "name": { "type": "string" } } }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Тег создан" },
+          "401": { "description": "Нет доступа" }
+        }
+      }
+    },
+    "/tags/{id}": {
+      "get": {
+        "tags": ["tags"],
+        "summary": "Получить тег по id",
+        "parameters": [{
+          "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }
+        }],
+        "responses": {
+          "200": { "description": "Тег", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Tag" } } } },
+          "404": { "description": "Не найдено" }
+        }
+      },
+      "put": {
+        "tags": ["tags"],
+        "summary": "Обновить тег",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{
+          "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }
+        }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "name": { "type": "string" } } }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Тег обновлён" }
+        }
+      },
+      "delete": {
+        "tags": ["tags"],
+        "summary": "Удалить тег",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{
+          "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }
+        }],
+        "responses": {
+          "200": { "description": "Тег удалён" }
+        }
+      }
+    },
+
+    "/comments/post/{postId}": {
+      "get": {
+        "tags": ["comments"],
+        "summary": "Все комментарии для поста",
+        "parameters": [{
+          "name": "postId", "in": "path", "required": true, "schema": { "type": "integer" }
+        }],
+        "responses": {
+          "200": { "description": "Комментарии", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Comment" } } } } }
+        }
+      }
+    },
+    "/comments": {
+      "post": {
+        "tags": ["comments"],
+        "summary": "Добавить комментарий",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": { "type": "string" },
+                  "postId": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Комментарий создан" }
+        }
+      }
+    },
+    "/comments/{id}": {
+      "get": {
+        "tags": ["comments"],
+        "summary": "Комментарий по id",
+        "parameters": [{
+          "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }
+        }],
+        "responses": {
+          "200": { "description": "Комментарий", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Comment" } } } }
+        }
+      },
+      "put": {
+        "tags": ["comments"],
+        "summary": "Обновить комментарий",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{
+          "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }
+        }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": { "schema": { "type": "object", "properties": { "content": { "type": "string" } } } }
+          }
+        },
+        "responses": {
+          "200": { "description": "Комментарий обновлён" }
+        }
+      },
+      "delete": {
+        "tags": ["comments"],
+        "summary": "Удалить комментарий",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{
+          "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }
+        }],
+        "responses": {
+          "200": { "description": "Комментарий удалён" }
+        }
+      }
+    },
+
+    "/likes/post/{postId}": {
+      "get": {
+        "tags": ["likes"],
+        "summary": "Лайки для поста",
+        "parameters": [{
+          "name": "postId", "in": "path", "required": true, "schema": { "type": "integer" }
+        }],
+        "responses": {
+          "200": { "description": "Лайки", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Like" } } } } }
+        }
+      }
+    },
+    "/likes": {
+      "post": {
+        "tags": ["likes"],
+        "summary": "Поставить лайк",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "postId": { "type": "integer" } } }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Лайк поставлен" }
+        }
+      }
+    },
+    "/likes/toggle": {
+      "post": {
+        "tags": ["likes"],
+        "summary": "Переключить лайк (поставить/снять)",
+        "security": [{ "BearerAuth": [] }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object", "properties": { "postId": { "type": "integer" } }, "required": ["postId"] }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Лайк переключён", "content": { "application/json": { "schema": { "type": "object", "properties": { "action": { "type": "string", "enum": ["added", "removed"] } } } } } },
+          "401": { "description": "Требуется авторизация" }
+        }
+      }
+    },
+    "/likes/{id}": {
+      "delete": {
+        "tags": ["likes"],
+        "summary": "Снять лайк",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{
+          "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }
+        }],
+        "responses": {
+          "200": { "description": "Лайк снят" }
+        }
+      }
+    },
+
+    "/users": {
+      "get": {
+        "tags": ["users"],
+        "summary": "Список пользователей (только admin)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 10 } }
+        ],
+        "responses": {
+          "200": { 
+            "description": "Список пользователей", 
+            "content": { 
+              "application/json": { 
+                "schema": { 
+                  "type": "object",
+                  "properties": {
+                    "users": { "type": "array", "items": { "$ref": "#/components/schemas/User" } },
+                    "pagination": {
+                      "type": "object",
+                      "properties": {
+                        "total": { "type": "integer" },
+                        "page": { "type": "integer" },
+                        "limit": { "type": "integer" },
+                        "totalPages": { "type": "integer" }
+                      }
+                    }
+                  }
+                }
+              } 
+            } 
+          },
+          "401": { "description": "Требуется авторизация" },
+          "403": { "description": "Требуются права администратора" }
+        }
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "tags": ["users"],
+        "summary": "Получить пользователя по ID (только admin)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{
+          "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }
+        }],
+        "responses": {
+          "200": { "description": "Данные пользователя", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
+          "404": { "description": "Пользователь не найден" },
+          "403": { "description": "Требуются права администратора" }
+        }
+      },
+      "put": {
+        "tags": ["users"],
+        "summary": "Обновить пользователя (только admin)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{
+          "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }
+        }],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": { "type": "string" },
+                  "name": { "type": "string" },
+                  "role": { "type": "string", "enum": ["user", "admin"] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Пользователь обновлён", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/User" } } } },
+          "400": { "description": "Ошибка валидации" },
+          "403": { "description": "Требуются права администратора" }
+        }
+      },
+      "delete": {
+        "tags": ["users"],
+        "summary": "Удалить пользователя (только admin)",
+        "security": [{ "BearerAuth": [] }],
+        "parameters": [{
+          "name": "id", "in": "path", "required": true, "schema": { "type": "integer" }
+        }],
+        "responses": {
+          "200": { "description": "Пользователь удалён" },
+          "400": { "description": "Нельзя удалить самого себя" },
+          "403": { "description": "Требуются права администратора" },
+          "404": { "description": "Пользователь не найден" }
+        }
+      }
+    }
+  }
+}

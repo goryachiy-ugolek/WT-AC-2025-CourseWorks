@@ -1,0 +1,8 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: longread-blog
+  labels:
+    name: longread-blog
+    environment: production

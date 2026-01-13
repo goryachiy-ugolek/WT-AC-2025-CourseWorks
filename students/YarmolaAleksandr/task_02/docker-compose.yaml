@@ -1,0 +1,69 @@
+---
+services:
+  postgres:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: longread_blog
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appuser"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  backend:
+    build: ./src/apps/server
+    working_dir: /app
+    environment:
+      DATABASE_URL: "postgresql://appuser:password@postgres:5432/longread_blog?schema=public"
+      JWT_SECRET: "your_secret_key"
+      REDIS_URL: "redis://redis:6379"
+      LOG_LEVEL: "info"
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./src/apps/server:/app
+      - backend_logs:/app/logs
+      - /app/node_modules
+
+  frontend:
+    build: ./src/apps/web
+    working_dir: /app
+    environment:
+      REACT_APP_API_URL: "http://localhost:5000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./src/apps/web:/app
+      - /app/node_modules
+    stdin_open: true
+    tty: true
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_logs:

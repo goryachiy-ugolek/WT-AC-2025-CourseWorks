@@ -1,0 +1,114 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: longread-blog
+  labels:
+    app: backend
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5000"
+        prometheus.io/path: "/metrics"
+    spec:
+      initContainers:
+        - name: migrations
+          image: longread-backend:latest
+          imagePullPolicy: Never
+          command:
+            - sh
+            - -c
+            - |
+              echo "Running database migrations..."
+              npx prisma migrate deploy
+              echo "Migrations completed"
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: longread-secrets
+                  key: DATABASE_URL
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: longread-config
+                  key: NODE_ENV
+      containers:
+        - name: backend
+          image: longread-backend:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 5000
+              name: http
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "5000"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: longread-secrets
+                  key: DATABASE_URL
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: longread-secrets
+                  key: JWT_SECRET
+            - name: NODE_ENV
+              valueFrom:
+                configMapKeyRef:
+                  name: longread-config
+                  key: NODE_ENV
+            - name: LOG_LEVEL
+              valueFrom:
+                configMapKeyRef:
+                  name: longread-config
+                  key: LOG_LEVEL
+            - name: REDIS_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: longread-config
+                  key: REDIS_HOST
+            - name: REDIS_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: longread-config
+                  key: REDIS_PORT
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          volumeMounts:
+            - name: logs
+              mountPath: /app/logs
+      volumes:
+        - name: logs
+          emptyDir: { }
